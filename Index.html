@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkyPulse | Weather & Air Quality Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-40 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 bg-sky-500/20 text-sky-400 rounded-xl border border-sky-500/30">
+          <i class="fa-solid fa-cloud-sun-rain text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-white tracking-wide">SkyPulse</h1>
+          <p class="text-xs text-slate-400">Live Weather & Air Quality Intelligence</p>
+        </div>
+      </div>
+
+      <!-- Search & Controls -->
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        <div class="relative flex-1 sm:w-64">
+          <input type="text" id="city-input" placeholder="Search city (e.g., London, Tokyo)" 
+                 class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-100 focus:outline-none focus:border-sky-500">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-xs text-slate-500"></i>
+        </div>
+        <button id="btn-search" class="px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-medium transition">
+          Search
+        </button>
+        <button id="btn-geo" title="Use current location" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition">
+          <i class="fa-solid fa-location-crosshairs"></i>
+        </button>
+        <button id="btn-unit" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-sky-400 font-semibold border border-slate-700 rounded-xl text-xs transition">
+          °C
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Loading Spinner -->
+    <div id="loader" class="hidden flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+      <i class="fa-solid fa-circle-notch fa-spin text-4xl text-sky-400"></i>
+      <p class="text-sm font-medium">Fetching live weather data...</p>
+    </div>
+
+    <!-- Weather Content -->
+    <div id="weather-content" class="flex flex-col gap-6">
+
+      <!-- Top Row: Current Weather & Air Quality -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Current Main Card -->
+        <div class="lg:col-span-2 glass-card rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden">
+          <div class="flex justify-between items-start z-10">
+            <div>
+              <h2 id="location-name" class="text-3xl font-extrabold text-white">---</h2>
+              <p id="current-date" class="text-xs text-slate-400 mt-1">---</p>
+            </div>
+            <span id="weather-badge" class="px-3 py-1 bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-full text-xs font-semibold">
+              ---
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between my-8 z-10">
+            <div class="flex items-baseline gap-2">
+              <span id="temp-main" class="text-6xl font-black text-white">--</span>
+              <span id="temp-unit" class="text-2xl font-bold text-slate-400">°C</span>
+            </div>
+            <div class="text-right">
+              <i id="weather-icon" class="fa-solid fa-cloud text-6xl text-sky-400"></i>
+            </div>
+          </div>
+
+          <!-- Extra Metrics Bar -->
+          <div class="grid grid-cols-3 gap-4 pt-4 border-t border-slate-800 z-10">
+            <div class="flex items-center gap-3">
+              <i class="fa-solid fa-droplet text-sky-400"></i>
+              <div>
+                <p class="text-[10px] uppercase font-bold text-slate-500">Humidity</p>
+                <p id="humidity" class="text-sm font-bold text-slate-200">--%</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <i class="fa-solid fa-wind text-indigo-400"></i>
+              <div>
+                <p class="text-[10px] uppercase font-bold text-slate-500">Wind</p>
+                <p id="wind-speed" class="text-sm font-bold text-slate-200">-- km/h</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <i class="fa-solid fa-sun text-amber-400"></i>
+              <div>
+                <p class="text-[10px] uppercase font-bold text-slate-500">UV Index</p>
+                <p id="uv-index" class="text-sm font-bold text-slate-200">--</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Air Quality Card -->
+        <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+          <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-wind text-emerald-400"></i> Air Quality Index
+            </h3>
+            <span id="aqi-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              Good
+            </span>
+          </div>
+
+          <div class="my-4 text-center">
+            <p class="text-4xl font-black text-white mb-1" id="aqi-value">--</p>
+            <p id="aqi-description" class="text-xs text-slate-400">Air quality is considered satisfactory.</p>
+          </div>
+
+          <!-- Pollutant Breakdown -->
+          <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-800">
+            <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
+              <p class="text-[10px] text-slate-500 font-bold uppercase">PM2.5</p>
+              <p id="pm25" class="text-sm font-bold text-slate-200">-- µg/m³</p>
+            </div>
+            <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
+              <p class="text-[10px] text-slate-500 font-bold uppercase">PM10</p>
+              <p id="pm10" class="text-sm font-bold text-slate-200">-- µg/m³</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Hourly Forecast Chart -->
+      <div class="glass-card rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-chart-line text-sky-400"></i> 24-Hour Temperature Forecast
+        </h3>
+        <div class="h-56">
+          <canvas id="hourlyChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 7-Day Forecast Grid -->
+      <div>
+        <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-calendar-days text-indigo-400"></i> 7-Day Forecast
+        </h3>
+        <div id="forecast-container" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    let currentUnit = 'C'; // 'C' or 'F'
+    let currentData = null;
+    let hourlyChartInstance = null;
+
+    // Weather Code Mapping
+    const weatherCodes = {
+      0: { name: "Clear Sky", icon: "fa-sun text-amber-400" },
+      1: { name: "Mainly Clear", icon: "fa-cloud-sun text-amber-300" },
+      2: { name: "Partly Cloudy", icon: "fa-cloud-sun text-slate-300" },
+      3: { name: "Overcast", icon: "fa-cloud text-slate-400" },
+      45: { name: "Foggy", icon: "fa-smog text-slate-400" },
+      61: { name: "Slight Rain", icon: "fa-cloud-rain text-sky-400" },
+      63: { name: "Moderate Rain", icon: "fa-cloud-showers-heavy text-sky-500" },
+      71: { name: "Snow", icon: "fa-snowflake text-indigo-300" },
+      95: { name: "Thunderstorm", icon: "fa-bolt text-yellow-400" }
+    };
+
+    // DOM References
+    const cityInput = document.getElementById('city-input');
+    const btnSearch = document.getElementById('btn-search');
+    const btnGeo = document.getElementById('btn-geo');
+    const btnUnit = document.getElementById('btn-unit');
+    const loader = document.getElementById('loader');
+    const weatherContent = document.getElementById('weather-content');
+
+    // Fetch Weather Data from Open-Meteo
+    async function fetchWeatherData(lat, lon, locationName) {
+      loader.classList.remove('hidden');
+      weatherContent.classList.add('hidden');
+
+      try {
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,uv_index&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
+        const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,us_aqi`;
+
+        const [weatherRes, aqiRes] = await Promise.all([
+          fetch(weatherUrl).then(r => r.json()),
+          fetch(aqiUrl).then(r => r.json())
+        ]);
+
+        currentData = { weatherRes, aqiRes, locationName };
+        renderDashboard();
+      } catch (err) {
+        alert("Failed to retrieve weather data. Please try again.");
+      } finally {
+        loader.classList.add('hidden');
+        weatherContent.classList.remove('hidden');
+      }
+    }
+
+    // Geocoding Search via OpenStreetMap
+    async function searchCity(city) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}`);
+        const data = await res.json();
+        if (data.length === 0) {
+          alert("City not found. Please check spelling.");
+          return;
+        }
+        const { lat, lon, display_name } = data[0];
+        const shortName = display_name.split(',')[0];
+        fetchWeatherData(lat, lon, shortName);
+      } catch (err) {
+        alert("Error finding location.");
+      }
+    }
+
+    // Convert Temperature Helper
+    function convertTemp(celsius) {
+      return currentUnit === 'F' ? Math.round((celsius * 9/5) + 32) : Math.round(celsius);
+    }
+
+    // Render Dashboard Content
+    function renderDashboard() {
+      if (!currentData) return;
+      const { weatherRes, aqiRes, locationName } = currentData;
+
+      // Current Weather Metrics
+      const curr = weatherRes.current;
+      const code = weatherCodes[curr.weather_code] || { name: "Clear", icon: "fa-sun text-amber-400" };
+
+      document.getElementById('location-name').textContent = locationName;
+      document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+      document.getElementById('weather-badge').textContent = code.name;
+      document.getElementById('temp-main').textContent = convertTemp(curr.temperature_2m);
+      document.getElementById('temp-unit').textContent = `°${currentUnit}`;
+      document.getElementById('weather-icon').className = `fa-solid ${code.icon} text-6xl`;
+      document.getElementById('humidity').textContent = `${curr.relative_humidity_2m}%`;
+      document.getElementById('wind-speed').textContent = `${Math.round(curr.wind_speed_10m)} km/h`;
+      document.getElementById('uv-index').textContent = curr.uv_index;
+
+      // Air Quality Index Rendering
+      const aqi = aqiRes.current;
+      const usAqi = Math.round(aqi.us_aqi || 25);
+      document.getElementById('aqi-value').textContent = usAqi;
+      document.getElementById('pm25').textContent = `${Math.round(aqi.pm2_5 || 0)} µg/m³`;
+      document.getElementById('pm10').textContent = `${Math.round(aqi.pm10 || 0)} µg/m³`;
+
+      const aqiBadge = document.getElementById('aqi-badge');
+      const aqiDesc = document.getElementById('aqi-description');
+      if (usAqi <= 50) {
+        aqiBadge.textContent = "Good";
+        aqiBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        aqiDesc.textContent = "Air quality is satisfactory with little to no risk.";
+      } else if (usAqi <= 100) {
+        aqiBadge.textContent = "Moderate";
+        aqiBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        aqiDesc.textContent = "Acceptable air quality for most individuals.";
+      } else {
+        aqiBadge.textContent = "Unhealthy";
+        aqiBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30";
+        aqiDesc.textContent = "Sensitive groups may experience health effects.";
+      }
+
+      // Render Hourly Chart
+      renderHourlyChart(weatherRes.hourly);
+
+      // Render 7-Day Forecast Grid
+      const forecastContainer = document.getElementById('forecast-container');
+      forecastContainer.innerHTML = '';
+      const daily = weatherRes.daily;
+
+      daily.time.forEach((timeStr, idx) => {
+        const date = new Date(timeStr);
+        const dayName = idx === 0 ? "Today" : date.toLocaleDateString('en-US', { weekday: 'short' });
+        const dayCode = weatherCodes[daily.weather_code[idx]] || { icon: "fa-sun text-amber-400" };
+        const maxTemp = convertTemp(daily.temperature_2m_max[idx]);
+        const minTemp = convertTemp(daily.temperature_2m_min[idx]);
+
+        const card = document.createElement('div');
+        card.className = "glass-card rounded-xl p-3 flex flex-col items-center justify-between text-center gap-2";
+        card.innerHTML = `
+          <span class="text-xs font-bold text-slate-400">${dayName}</span>
+          <i class="fa-solid ${dayCode.icon} text-2xl my-1"></i>
+          <div class="text-xs">
+            <span class="font-bold text-slate-100">${maxTemp}°</span>
+            <span class="text-slate-500 ml-1">${minTemp}°</span>
+          </div>
+        `;
+        forecastContainer.appendChild(card);
+      });
+    }
+
+    // Chart.js Hourly Temperature Line Chart
+    function renderHourlyChart(hourly) {
+      const ctx = document.getElementById('hourlyChart').getContext('2d');
+      const hours = hourly.time.slice(0, 24).map(t => new Date(t).getHours() + ':00');
+      const temps = hourly.temperature_2m.slice(0, 24).map(t => convertTemp(t));
+
+      if (hourlyChartInstance) hourlyChartInstance.destroy();
+
+      hourlyChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: hours,
+          datasets: [{
+            label: `Temperature (°${currentUnit})`,
+            data: temps,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } }
+          }
+        }
+      });
+    }
+
+    // Event Listeners
+    btnSearch.addEventListener('click', () => {
+      if (cityInput.value.trim()) searchCity(cityInput.value.trim());
+    });
+
+    cityInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && cityInput.value.trim()) searchCity(cityInput.value.trim());
+    });
+
+    btnGeo.addEventListener('click', () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          fetchWeatherData(pos.coords.latitude, pos.coords.longitude, "Your Location");
+        }, () => alert("Unable to access geolocation."));
+      }
+    });
+
+    btnUnit.addEventListener('click', () => {
+      currentUnit = currentUnit === 'C' ? 'F' : 'C';
+      btnUnit.textContent = `°${currentUnit}`;
+      renderDashboard();
+    });
+
+    // Default Initial Load (Nairobi / Default City)
+    searchCity("Nairobi");
+  </script>
+</body>
+</html>
